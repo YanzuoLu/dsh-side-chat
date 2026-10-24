@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./lib/client.js", "./package.json": "./package.json" },
-  "files": ["index.js", "release.json", "dist", "lib/client.js", "cordis.patch.yml"],
+  "files": ["index.js", "bootstrap.js", "release.json", "dist", "lib/client.js", "cordis.patch.yml"],
   "scripts": { "build": "node scripts/build.mjs" },
   "license": "MIT",
   "author": "Yanzuo Lu",

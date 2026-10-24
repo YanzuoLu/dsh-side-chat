@@ -42,6 +42,7 @@ export async function apply(ctx, bridge) {
   const deleting = new Map()
   const delivering = new Map()
   const creating = new Map()
+  const handoffStarts = new Map()
   let reconciling = false
 
   function requireSide(id) {
@@ -60,7 +61,7 @@ export async function apply(ctx, bridge) {
     if (previous) return previous
     const operation = (async () => {
       const row = requireSide(id)
-      await records.put(id, { ...clearError(row), state: 'deleting' })
+      await records.put(id, { ...clearError(row), state: 'deleting', purgeRequested: true })
       try {
         await purgeSideChat(ctx, id, {
           handles, records: row.purgeRecords ?? [],
@@ -70,7 +71,7 @@ export async function apply(ctx, bridge) {
         return { mainSessionId: row.mainSessionId }
       } catch (error) {
         const current = records.get(id)
-        if (current) await records.put(id, { ...current, state: 'deleting', error: error.message })
+        if (current) await records.put(id, { ...current, state: 'open', error: error.message })
         throw error
       }
     })().finally(() => deleting.delete(id))
@@ -84,7 +85,7 @@ export async function apply(ctx, bridge) {
     const decision = await next()
     const row = records.get(agent.id)
     if (!row || decision.kind !== 'enter' || signal.aborted) return decision
-    if (row.state === 'deleting') return { kind: 'reject', reason: 'Side chat is being deleted' }
+    if (row.state === 'deleting' || row.purgeRequested) return { kind: 'reject', reason: 'Side chat is being deleted' }
     if (!decision.messages.some(message => message.source.kind === 'user')) return decision
     let seen = boundarySeen.get(agent.session)
     if (seen === undefined) {
@@ -187,6 +188,9 @@ export async function apply(ctx, bridge) {
           },
           agentOptions: selection,
           setup: async (agentCtx, agent) => {
+            // A mid-turn seed may contain queued main-session input. Clear only
+            // this fresh agent's copied inbox so it waits for side-chat input.
+            agent.cancel({ kind: 'user' })
             agent.session.append('model/selection', selection)
             agent.session.append('session/title', { title: initialTitle, messageSeqs: [], source: { kind: 'fallback' } })
             await composition.setup(agentCtx, agent)
@@ -207,22 +211,28 @@ export async function apply(ctx, bridge) {
 
   async function deliverHandoff(id, requestId) {
     const row = requireSide(id)
-    const side = await resolveAgent(ctx, id)
-    await ctx.sessionController.prompt({
-      sessionId: id, requestId, mode: 'queue', content: [{ type: 'text', text: HANDOFF_REQUEST }],
-    }, lifetime.signal)
-    await side.whenIdle()
-    if (bridge.closing || records.get(id)?.state !== 'handoff') return
-    const report = await observe(ctx, id, view => {
-      const input = view.events.findLast(event => event.type === 'user/message' && event.data.source.rpcId === requestId)
-      if (!input) throw new Error('Handoff request did not run')
-      const turn = view.events.findLast(event => event.seq < input.seq && event.type === 'turn/start')?.data.turn
-      const end = view.events.find(event => event.seq > input.seq && event.type === 'turn/end' && event.data.turn === turn)
-      if (end?.data.reason.kind !== 'completed') throw new Error('Handoff was interrupted or failed; the side chat has been kept')
-      const answer = view.events.findLast(event => event.seq > input.seq && event.seq < end.seq && event.type === 'assistant/message' && textOf(event.data.message).trim())
-      if (!answer) throw new Error('Handoff returned no text; the side chat has been kept')
-      return textOf(answer.data.message)
-    })
+    let report = row.handoffText
+    if (report === undefined) {
+      const side = await resolveAgent(ctx, id)
+      await ctx.sessionController.prompt({
+        sessionId: id, requestId, mode: 'queue', content: [{ type: 'text', text: HANDOFF_REQUEST }],
+      }, lifetime.signal)
+      await side.whenIdle()
+      if (bridge.closing || records.get(id)?.state !== 'handoff') return
+      report = await observe(ctx, id, view => {
+        const input = view.events.findLast(event => event.type === 'user/message' && event.data.source.rpcId === requestId)
+        if (!input) throw new Error('Handoff request did not run')
+        const turn = view.events.findLast(event => event.seq < input.seq && event.type === 'turn/start')?.data.turn
+        const end = view.events.find(event => event.seq > input.seq && event.type === 'turn/end' && event.data.turn === turn)
+        if (end?.data.reason.kind !== 'completed') throw new Error('Handoff was interrupted or failed; the side chat has been kept')
+        const answer = view.events.findLast(event => event.seq > input.seq && event.seq < end.seq && event.type === 'assistant/message' && textOf(event.data.message).trim())
+        if (!answer) throw new Error('Handoff returned no text; the side chat has been kept')
+        return textOf(answer.data.message)
+      })
+      // Persist the exact outbox BEFORE publishing into main. A retry reuses
+      // both its text and its request id, including after a process interruption.
+      await records.update(id, current => ({ ...current, handoffText: report }))
+    }
     // Serialize final delivery with explicit deletion. A delete during report
     // generation cancels it; once delivery starts, deletion waits for its receipt.
     const delivery = (async () => {
@@ -245,9 +255,10 @@ export async function apply(ctx, bridge) {
   async function handoff(payload) {
     const id = requiredSession(payload)
     const row = requireSide(id)
-    if (row.state === 'deleting') throw new Error('Side chat is being deleted')
+    if (row.state === 'deleting' || row.purgeRequested) throw new Error('Side chat deletion is pending; retry deletion before continuing')
     if (bridge.jobs.has(id)) return { mainSessionId: row.mainSessionId }
-    const requestId = `side-chat-handoff-${randomUUID()}`
+    const requestId = row.handoffText !== undefined && row.handoffRequestId
+      ? row.handoffRequestId : `side-chat-handoff-${randomUUID()}`
     await records.put(id, { ...clearError(row), state: 'handoff', handoffRequestId: requestId })
     const job = deliverHandoff(id, requestId).catch(async error => {
       const current = records.get(id)
@@ -305,7 +316,13 @@ export async function apply(ctx, bridge) {
       creating.set(key, operation)
       return operation
     },
-    handoff,
+    handoff: payload => {
+      const id = requiredSession(payload)
+      if (handoffStarts.has(id)) return handoffStarts.get(id)
+      const operation = handoff(payload).finally(() => handoffStarts.delete(id))
+      handoffStarts.set(id, operation)
+      return operation
+    },
     delete: payload => remove(requiredSession(payload)),
   }
   for (const [endpoint, handler] of Object.entries(routes)) {
