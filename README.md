@@ -7,7 +7,7 @@ Full-capability side conversations for DeepSeek Harness Web.
 - **Start Side Chat** in the composer creates an ordinary conversation from the main session's current event boundary. It opens without making a model request. The main session keeps working.
 - Side chats start with the main session's model, reasoning effort, working directory and agent preset. They are not delegated subagents and retain normal session capabilities.
 - The header's **Side chats** menu switches between the main session and any of its side chats. Each side chat can be deleted there.
-- Inside a side chat the composer action becomes **Handoff Session**. It asks that conversation to write a handoff, immediately returns the view to main, then delivers the finished report to main and permanently deletes the side chat. Failed or interrupted reports keep the side chat available.
+- Inside a side chat the composer action becomes **Handoff Side Chat**. It asks that conversation to write a handoff, immediately returns the view to main, then delivers the finished report to main and permanently deletes the side chat. Failed or interrupted reports keep the side chat available.
 - Archiving or deleting the main session cleans up its side chats. Deletion removes the side-chat log, descendants created as subagents, trash copies, projection entries and search-index rows. It never removes the main conversation or unrelated ordinary forks. Shared attachment objects are retained because other sessions can reference them. This is logical deletion, not forensic erasure of snapshots or backups.
 
 UI labels follow DSH's language preference. The initial title is **Side Chat** in English or **侧边会话** in Chinese. After the first human input, the existing DSH title generator receives only that side-chat input. Explicit user renames are preserved. No numbered names are assigned.
@@ -18,7 +18,7 @@ The side chat inherits the main history through the opening boundary. On its fir
 
 > This is a side chat forked from the main session. The main session continues separately and does not see this conversation.
 
-Opening alone neither sends this note to a model nor starts a turn. The note is committed once in the history, not repeatedly appended to the system prompt. No custom compaction is performed.
+Opening alone neither sends this note to a model nor starts a turn. The note is committed once in the history, not repeatedly appended to the system prompt. The browser renders that existing context event as a visible, standalone boundary before the first user message; it is not folded into the turn's work process. Its source and model-facing content remain unchanged. No custom compaction is performed.
 
 Handoff asks:
 
