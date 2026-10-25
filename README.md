@@ -34,6 +34,8 @@ Side-chat identities start with `session-sidechat-`. A small client compatibilit
 
 This does not use CSS hiding, move DOM rows, detach workspace membership, or pretend ordinary sessions are subagents. Side chats do not appear under workspaces, Ungrouped, flat lists, or sidebar search, and do not consume the normal five-row quota. They remain ordinary sessions in host metadata, not private or access-restricted sessions.
 
+Their native UI status is aggregated onto the visible main-session row in the sidebar, including flat and search views. A running side chat or its running subagents keeps that main row active and outside the idle-row quota. Native pending interactions retain priority, followed by running activity and unread completion reminders. The green dot uses DSH's own `completionUnread` state, which means an unread transition to idle, not proof of success. Viewing the corresponding side chat clears its native reminder; viewing only main does not acknowledge an unread side chat. No completion is invented for an already-idle baseline. These reminders follow DSH's normal browser-lifetime behavior and are not reconstructed after a page refresh. The global session/status stores and main-session run/stop controls are unchanged.
+
 The stock server limits a content-search page before the sidebar projection; a query matching many side chats can therefore yield fewer visible matches. The projection does not alter another plugin's separately implemented session browser. Disable or uninstall this plugin only after handing off or deleting outstanding side chats, since native DSH has no hidden-session flag.
 
 ## Updates without restarting DSH
