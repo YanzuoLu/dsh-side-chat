@@ -7,6 +7,7 @@ Full-capability side conversations for DeepSeek Harness Web.
 - **Start Side Chat** in the composer creates an ordinary conversation from the main session's current event boundary. It opens without making a model request. The main session keeps working.
 - Side chats start with the main session's model, reasoning effort, working directory and agent preset. They are not delegated subagents and retain normal session capabilities.
 - The header's **Side chats** menu switches between the main session and any of its side chats. Each side chat can be deleted there.
+- Inside a side chat the native title breadcrumb shows **Main title / Side-chat title**. Click the main title to return directly to main. This explicit choice also resets that family's remembered sidebar destination to main. Native typography, separators, title updates, tabs and other header controls are reused. A real subagent opened below a side chat retains its own native lineage after these two titles.
 - Header activity controls appear in this order: **Side chats → Subagents → Background jobs → Mode**. Native visibility rules remain unchanged, so absent activity does not add empty controls. The native background-jobs entry keeps its component and actions; only its ordering metadata changes. Unloading this plugin restores its original order.
 - The sidebar remembers the last conversation viewed in each main session's family. Returning to that main session from the sidebar reopens the remembered side chat. Explicitly choosing main in the header stays on main. Handoff or deletion clears that side chat's remembered position. This preference is stored per browser and survives page refreshes.
 - Inside a side chat the composer action becomes **Handoff Side Chat**. It asks that conversation to write a handoff, immediately returns the view to main, then delivers the finished report to main and permanently deletes the side chat. Failed or interrupted reports keep the side chat available.
@@ -52,7 +53,7 @@ dsh plugin --profile web add github:YanzuoLu/dsh-side-chat
 
 ## Compatibility
 
-Tested against DSH **0.2.0-rc.2**. The sidebar entry decorator, header-order metadata update and registry notification, native title-provider selection, controller composition setup, and permanent deletion use small version-specific compatibility seams. Unsupported layouts fail visibly instead of silently dropping or deleting an unrelated session. No DSH source or other plugin is patched on disk.
+Tested against DSH **0.2.0-rc.2**. The sidebar entry decorator, native-header breadcrumb projection, header-order metadata update and registry notification, native title-provider selection, controller composition setup, and permanent deletion use small version-specific compatibility seams. Unsupported layouts fail visibly instead of silently dropping or deleting an unrelated session. No DSH source or other plugin is patched on disk.
 
 The JSON storage backend persists relationships in the `side_chat` domain. Successful handoff/deletion removes each relationship. Interrupted handoffs are retained for review rather than automatically replayed after restart.
 
