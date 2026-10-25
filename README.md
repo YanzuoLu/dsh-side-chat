@@ -6,6 +6,7 @@ Full-capability side conversations for DeepSeek Harness Web.
 
 - **Start Side Chat** in the composer creates an ordinary conversation from the main session's current event boundary. It opens without making a model request. The main session keeps working.
 - Side chats start with the main session's model, reasoning effort, working directory and agent preset. They are not delegated subagents and retain normal session capabilities.
+- New side chats also copy the main session's subagent-model setting (including its mode and any chosen reasoning effort) and Devin Fusion switch when those plugins are loaded. These are independent copies, not live links. Later edits in main or side do not overwrite the other, and existing or resumed side chats are not reset. “Follow main model” inside a side chat follows that side chat's own model. Its subagents follow the side chat's own copied settings.
 - The header's **Side chats** menu switches between the main session and any of its side chats. Each side chat can be deleted there.
 - Inside a side chat the native title breadcrumb shows **Main title / Side-chat title**. Click the main title to return directly to main. This explicit choice also resets that family's remembered sidebar destination to main. Native typography, separators, title updates, tabs and other header controls are reused. A real subagent opened below a side chat retains its own native lineage after these two titles.
 - Header activity controls appear in this order: **Side chats → Subagents → Background jobs → Mode**. Native visibility rules remain unchanged, so absent activity does not add empty controls. The native background-jobs entry keeps its component and actions; only its ordering metadata changes. Unloading this plugin restores its original order.
@@ -43,6 +44,8 @@ The stock server limits a content-search page before the sidebar projection; a q
 
 The published package has a stable entry and versioned host implementations. `npm run build` produces an immutable implementation URL and a release manifest. After updating from GitHub, the entry reads that manifest and switches implementations in place. It waits while a side chat is running, handing off, or being deleted. Agent handles and persistent state are owned by the stable entry rather than the replaceable implementation.
 
+Preference inheritance is a separate content-addressed component in the same bundle. Adding or updating it does not unload the stable side-chat owner or interrupt its active agents. It uses the existing `agent/created` lifecycle and the preference owners' already-open storage-domain tables, without opening or closing their domains. Unloaded preference plugins and unset main-session values are skipped. Side-chat deletion also removes these side-specific preference copies.
+
 A failed new implementation is rolled back to the previous one. No global Node module cache is cleared and the plugin never restarts DSH. Frontend bundle updates may require a browser refresh. Updates to the stable entry itself, its dependency graph, or DSH's core are not covered by this mechanism and require separate review.
 
 ## Install
@@ -63,4 +66,4 @@ The JSON storage backend persists relationships in the `side_chat` domain. Succe
 npm run build
 ```
 
-Source host modules are in `lib/`. Publish generated `dist/host/<revision>/` and `release.json` together. Tests and temporary fixtures live in the gitignored `.cache/` directory.
+Source host modules are in `lib/`. Publish generated `dist/host/<revision>/` and `release.json` together. Preference code is published in `dist/preferences/<revision>/`; its matching entry is generated into `cordis.patch.yml`. Tests and temporary fixtures live in the gitignored `.cache/` directory.
