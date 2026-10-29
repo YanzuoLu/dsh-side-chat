@@ -14,7 +14,7 @@ Full-capability side conversations for DeepSeek Harness Web.
 - Inside a side chat the composer action becomes **Handoff Side Chat**. It asks that conversation to write a handoff, immediately returns the view to main, then delivers the finished report to main and permanently deletes the side chat. Failed or interrupted reports keep the side chat available.
 - Archiving or deleting the main session cleans up its side chats. Deletion removes the side-chat log, descendants created as subagents, trash copies, projection entries and search-index rows. It never removes the main conversation or unrelated ordinary forks. Shared attachment objects are retained because other sessions can reference them. This is logical deletion, not forensic erasure of snapshots or backups.
 
-UI labels follow DSH's language preference. The initial title is **Side Chat** in English or **侧边会话** in Chinese. After the first human input, the existing DSH title generator receives only that side-chat input. Explicit user renames are preserved. No numbered names are assigned.
+UI labels follow DSH's language preference. The initial title is **Side Chat** in English or **侧边会话** in Chinese when an inherited human message is available as its native title reference. With no human input in the seed, no automatic title event is written yet; the native empty-session title remains until the first side-chat input. After that input, the existing DSH title generator receives only the side-chat input. Explicit user renames in the side chat are preserved, including after clearing or restoring it. Automatic title events always cite real earlier human messages so their logs remain valid on reload. No numbered names are assigned.
 
 ## Context and handoff
 
